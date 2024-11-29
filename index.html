@@ -3,36 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ball vs. Squares</title>
+  <title>Ball vs. Squares with Enhancements</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; background: #222; }
+    #score {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      color: white;
+      font-size: 24px;
+      font-family: Arial, sans-serif;
+    }
   </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
+<div id="score">Score: 0</div>
+
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 20 };
+let ball = { x: canvas.width / 2 + 10, y: canvas.height / 2, radius: 20, color: 'white' };
 let bullets = [];
 let squares = [];
-let spawnInterval = 1000;
+let score = 0;
+let canShoot = true;
 let gameOver = false;
 
 function drawBall() {
-  ctx.fillStyle = 'white';
+  ctx.fillStyle = ball.color;
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
   ctx.fill();
-}
-
-function drawBullets() {
-  ctx.fillStyle = 'yellow';
-  bullets.forEach(bullet => ctx.fillRect(bullet.x, bullet.y, bullet.size, bullet.size));
 }
 
 function drawSquares() {
@@ -40,42 +46,18 @@ function drawSquares() {
   squares.forEach(square => ctx.fillRect(square.x, square.y, square.size, square.size));
 }
 
-function updateBullets() {
+function drawBeams() {
   bullets.forEach(bullet => {
-    bullet.x += bullet.dx;
-    bullet.y += bullet.dy;
+    const gradient = ctx.createLinearGradient(bullet.x, bullet.y, bullet.x + bullet.dx * 20, bullet.y + bullet.dy * 20);
+    gradient.addColorStop(0, 'rgba(128, 0, 128, 1)');
+    gradient.addColorStop(1, 'rgba(128, 0, 128, 0)');
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(ball.x, ball.y);
+    ctx.lineTo(ball.x + bullet.dx * 200, ball.y + bullet.dy * 200);
+    ctx.stroke();
   });
-  bullets = bullets.filter(bullet => bullet.x > 0 && bullet.x < canvas.width && bullet.y > 0 && bullet.y < canvas.height);
-}
-
-function spawnSquare() {
-  const size = 40;
-  let square = { size };
-  const edge = Math.floor(Math.random() * 4);
-
-  if (edge === 0) { // Top
-    square.x = Math.random() * canvas.width;
-    square.y = -size;
-    square.dx = 0;
-    square.dy = 2;
-  } else if (edge === 1) { // Bottom
-    square.x = Math.random() * canvas.width;
-    square.y = canvas.height;
-    square.dx = 0;
-    square.dy = -2;
-  } else if (edge === 2) { // Left
-    square.x = -size;
-    square.y = Math.random() * canvas.height;
-    square.dx = 2;
-    square.dy = 0;
-  } else { // Right
-    square.x = canvas.width;
-    square.y = Math.random() * canvas.height;
-    square.dx = -2;
-    square.dy = 0;
-  }
-
-  squares.push(square);
 }
 
 function updateSquares() {
@@ -85,25 +67,59 @@ function updateSquares() {
   });
 }
 
+function spawnSquare() {
+  const size = 40;
+  let square = { size };
+  const edge = Math.floor(Math.random() * 4);
+
+  if (edge === 0) {
+    square.x = ball.x;
+    square.y = -size;
+    square.dx = 0;
+    square.dy = 2;
+  } else if (edge === 1) {
+    square.x = ball.x;
+    square.y = canvas.height;
+    square.dx = 0;
+    square.dy = -2;
+  } else if (edge === 2) {
+    square.x = -size;
+    square.y = ball.y;
+    square.dx = 2;
+    square.dy = 0;
+  } else {
+    square.x = canvas.width;
+    square.y = ball.y;
+    square.dx = -2;
+    square.dy = 0;
+  }
+
+  squares.push(square);
+}
+
 function checkCollisions() {
   squares.forEach((square, i) => {
-    if (Math.hypot(ball.x - (square.x + square.size / 2), ball.y - (square.y + square.size / 2)) < ball.radius + square.size / 2) {
-      gameOver = true;
-      alert("Game Over! Refresh to try again.");
-    }
-
     bullets.forEach((bullet, j) => {
       if (bullet.x < square.x + square.size && bullet.x + bullet.size > square.x &&
           bullet.y < square.y + square.size && bullet.y + bullet.size > square.y) {
         bullets.splice(j, 1);
         squares.splice(i, 1);
+        score++;
+        document.getElementById('score').innerText = `Score: ${score}`;
       }
     });
   });
 }
 
 function shoot(direction) {
-  let bullet = { x: ball.x, y: ball.y, size: 10, dx: 0, dy: 0 };
+  if (!canShoot) return;
+  canShoot = false;
+  setTimeout(() => canShoot = true, 250);
+
+  ball.color = 'rgba(128, 0, 128, 1)';
+  setTimeout(() => ball.color = 'white', 100);
+
+  let bullet = { x: ball.x, y: ball.y, dx: 0, dy: 0 };
   if (direction === 'ArrowUp') bullet.dy = -5;
   if (direction === 'ArrowDown') bullet.dy = 5;
   if (direction === 'ArrowLeft') bullet.dx = -5;
@@ -116,16 +132,15 @@ function gameLoop() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawBall();
-  drawBullets();
   drawSquares();
-  updateBullets();
+  drawBeams();
   updateSquares();
   checkCollisions();
 
   requestAnimationFrame(gameLoop);
 }
 
-setInterval(spawnSquare, spawnInterval);
+setInterval(spawnSquare, 500);
 window.addEventListener('keydown', (e) => shoot(e.key));
 
 gameLoop();
