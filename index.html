@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ball vs. Squares with Enhancements</title>
+  <title>Ball vs. Beam Squares</title>
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; background: #222; }
@@ -48,14 +48,11 @@ function drawSquares() {
 
 function drawBeams() {
   bullets.forEach(bullet => {
-    const gradient = ctx.createLinearGradient(bullet.x, bullet.y, bullet.x + bullet.dx * 20, bullet.y + bullet.dy * 20);
-    gradient.addColorStop(0, 'rgba(128, 0, 128, 1)');
-    gradient.addColorStop(1, 'rgba(128, 0, 128, 0)');
-    ctx.strokeStyle = gradient;
-    ctx.lineWidth = 8;
+    ctx.strokeStyle = 'rgba(128, 0, 128, 0.8)';
+    ctx.lineWidth = 20;
     ctx.beginPath();
     ctx.moveTo(ball.x, ball.y);
-    ctx.lineTo(ball.x + bullet.dx * 200, ball.y + bullet.dy * 200);
+    ctx.lineTo(bullet.targetX, bullet.targetY);
     ctx.stroke();
   });
 }
@@ -98,16 +95,18 @@ function spawnSquare() {
 }
 
 function checkCollisions() {
-  squares.forEach((square, i) => {
-    bullets.forEach((bullet, j) => {
-      if (bullet.x < square.x + square.size && bullet.x + bullet.size > square.x &&
-          bullet.y < square.y + square.size && bullet.y + bullet.size > square.y) {
-        bullets.splice(j, 1);
-        squares.splice(i, 1);
-        score++;
-        document.getElementById('score').innerText = `Score: ${score}`;
-      }
+  squares = squares.filter(square => {
+    let hit = bullets.some(bullet => {
+      return bullet.direction === 'horizontal'
+        ? square.y >= ball.y - 10 && square.y <= ball.y + 10
+        : square.x >= ball.x - 10 && square.x <= ball.x + 10;
     });
+    if (hit) {
+      score++;
+      document.getElementById('score').innerText = `Score: ${score}`;
+      return false;
+    }
+    return true;
   });
 }
 
@@ -119,12 +118,14 @@ function shoot(direction) {
   ball.color = 'rgba(128, 0, 128, 1)';
   setTimeout(() => ball.color = 'white', 100);
 
-  let bullet = { x: ball.x, y: ball.y, dx: 0, dy: 0 };
-  if (direction === 'ArrowUp') bullet.dy = -5;
-  if (direction === 'ArrowDown') bullet.dy = 5;
-  if (direction === 'ArrowLeft') bullet.dx = -5;
-  if (direction === 'ArrowRight') bullet.dx = 5;
-  bullets.push(bullet);
+  let targetX = direction === 'ArrowLeft' ? 0 : direction === 'ArrowRight' ? canvas.width : ball.x;
+  let targetY = direction === 'ArrowUp' ? 0 : direction === 'ArrowDown' ? canvas.height : ball.y;
+
+  bullets.push({
+    direction: direction === 'ArrowLeft' || direction === 'ArrowRight' ? 'horizontal' : 'vertical',
+    targetX, targetY
+  });
+  setTimeout(() => bullets.shift(), 150);
 }
 
 function gameLoop() {
